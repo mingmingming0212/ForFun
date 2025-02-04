@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import simpledialog, messagebox
 import winsound as sd
-import os
 from datetime import datetime
+import os
 
 def beepsound():
     fr = 2000    # range : 37 ~ 32767
@@ -23,7 +23,7 @@ root = tk.Tk()
 root.withdraw()
 
 # Ask how many study sessions
-study_count = simpledialog.askinteger("공부 횟수 입력", "공부 횟수를 입력하세요:", minvalue=1, maxvalue=100)
+study_count = simpledialog.askinteger("1", "공부 횟수를 입력하세요:", minvalue=1, maxvalue=100)
 if study_count is None:
     exit()
     
@@ -77,17 +77,24 @@ plan_window.wait_window()
 
 # Time Constants
 MIN = 60
-SECOND = 1  # Debugging Mode
+SECOND = 1  
 TIMER_SET = SECOND  # Change to `MIN` for real execution
 
+DEBUG = 1
+
+# DEBUG SETTING
+TIME = 1000 * TIMER_SET
+# TIME = DEBUG
+
 # Total Study Time Tracker
+show_seconds = True
 spend_time = 0  
 start_time = record_time() # record time
 
 # Create Timer Window (Always on Top)
 timer_window = tk.Tk()
 timer_window.title("남은 시간")
-timer_window.geometry("300x70")
+timer_window.geometry("400x90")
 timer_window.attributes("-topmost", True)  # Always keep window on top
 
 def on_close():
@@ -97,8 +104,17 @@ def on_close():
 # If User terminates the timer window, terminate the application
 timer_window.protocol("WM_DELETE_WINDOW", on_close)
 
-time_label = tk.Label(timer_window, text="", font=("Arial", 16))
-time_label.pack(pady=20)
+time_label = tk.Label(timer_window, text="", font=("HY견고딕", 16))
+time_label.pack(pady=10)
+
+def toggle_seconds():
+    """ 초 표시 여부를 변경하는 함수 """
+    global show_seconds
+    show_seconds = not show_seconds  # True <-> False 변경
+
+# Toggle 'Seconds' Timer
+toggle_button = tk.Button(timer_window, text="초 설정", command=toggle_seconds)
+toggle_button.pack(pady=5)
 
 def timer(type, remaining_time, callback):
     """ Timer function that updates UI based on study/break session """
@@ -106,11 +122,18 @@ def timer(type, remaining_time, callback):
     if remaining_time > 0:
         if type == "STUDY":
             spend_time += 1  # Track total study time
-        hours = remaining_time // 60
-        minutes = remaining_time % 60
-        time_label.config(text=f"남은 {'공부' if type == 'STUDY' else '휴식'} 시간: {hours} 시간 {minutes} 분")
+        
+        hours = remaining_time // 3600
+        minutes = (remaining_time % 3600) // 60
+        seconds = remaining_time % 60
 
-        timer_window.after(1000 * TIMER_SET, lambda: timer(type, remaining_time - 1, callback))
+        # 초 숨김 여부에 따라 다르게 표시
+        if show_seconds:
+            time_label.config(text=f"남은 {'공부' if type == 'STUDY' else '휴식'} 시간: {hours} 시간 {minutes} 분 {seconds} 초")
+        else:
+            time_label.config(text=f"남은 {'공부' if type == 'STUDY' else '휴식'} 시간: {hours} 시간 {minutes} 분")
+
+        timer_window.after(TIME, lambda: timer(type, remaining_time - 1, callback))  # 1초마다 갱신
     else:
         callback()  # Call next function when time is up
 
@@ -125,19 +148,20 @@ def study_session():
     messagebox.showinfo("공부 시작", f"남은 공부 시간: {study_duration} 분")
 
     # Start study timer
-    timer("STUDY", study_duration, study_session_complete)
+    timer("STUDY", study_duration * 60, study_session_complete)
 
 
 def study_session_complete():
     beepsound_long()
+    
+    # top function for popup
+    top = tk.Toplevel()
+    top.attributes("-topmost", True)
+    top.withdraw()  
+
 
     """ Called when study session is over. Asks if user wants to continue. """
     global study_count
-
-    # Ensure MessageBox appears on top
-    top = tk.Toplevel()
-    top.attributes("-topmost", True)  # Always on top
-    top.withdraw()  # Hide the window, only use it as a parent for MessageBox
 
     end_study = messagebox.askyesno("공부 종료", "공부를 끝내시겠습니까?", parent=top)
     
@@ -150,12 +174,17 @@ def study_session_complete():
 
 
 def break_time():
+    
+    top = tk.Toplevel()
+    top.attributes("-topmost", True)
+    top.withdraw()  
+
     """ Starts a break session and then calls study_session() again """
     global study_count
-    messagebox.showinfo("휴식 시간", f"남은 휴식 시간: {break_duration} 분")
+    messagebox.showinfo("휴식 시간", f"남은 휴식 시간: {break_duration} 분", parent=top)
 
     # Start break timer
-    timer("BREAK", break_duration, break_done)
+    timer("BREAK", break_duration * 60, break_done)
 
 
 def break_done():
@@ -169,23 +198,35 @@ def break_done():
 
 
 def study_over():
-    """ When the study is completely finish """
+    """ When the study is completely finished """
     global end_time
-    end_time = record_time() # record time
-    record_study(start_time, end_time)
-    messagebox.showinfo("총 공부 시간", f"총 공부한 시간: {spend_time // 60} 시간 {spend_time % 60} 분")
+    end_time = record_time()  # Record end time
+
+    total_hours = spend_time // 3600
+    total_minutes = (spend_time % 3600) // 60
+    total_seconds = spend_time % 60
+
+
+    print(f"DEBUG: 총 공부 시간 = {total_hours}시간 {total_minutes}분 {total_seconds}초")
+
+    record_study(start_time, end_time, total_hours, total_minutes, total_seconds)
+
+    messagebox.showinfo("총 공부 시간", f"총 공부한 시간: {total_hours} 시간 {total_minutes} 분 {total_seconds} 초")
+    
     timer_window.destroy()
     exit()
-    
-    
-def record_study(start_time, end_time):
+
+def record_study(start_time, end_time, hours, minutes, seconds):
     """ Record the total study time and date in txt file """
     log_file = "log.txt"
-    log_entry = f"공부 시작 시간: {start_time} | 공부 종료 시간: {end_time}\n 총 공부 시간: {spend_time // 60} 시간 {spend_time % 60} 분\n"
-    
+    log_entry = (
+        f"공부 시작 시간: {start_time} | 공부 종료 시간: {end_time}\n"
+        f"총 공부 시간: {hours} 시간 {minutes} 분 {seconds} 초\n\n"
+    )
+
     with open(log_file, "a", encoding="utf-8") as file:
         file.write(log_entry)
-    
+
     
 # PROGRAM BEGINS
 
