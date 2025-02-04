@@ -25,7 +25,7 @@ if study_count is None:
 
 # Time Constants
 MIN = 60
-SECOND = 1  # Debugging Modepi
+SECOND = 1  # Debugging Mode
 TIMER_SET = SECOND  # Change to `MIN` for real execution
 STUDYTIME = 30  # Minutes
 BREAKTIME = 15  # Minutes
@@ -37,7 +37,7 @@ spend_time = 0
 timer_window = tk.Tk()
 timer_window.title("남은 시간")
 timer_window.geometry("300x70")
-timer_window.attributes("-topmost", True)  # 🔥 Always keep window on top
+timer_window.attributes("-topmost", True)  # Always keep window on top
 
 time_label = tk.Label(timer_window, text="", font=("Arial", 16))
 time_label.pack(pady=20)
@@ -74,7 +74,7 @@ def study_done():
     """ Called when study session is over. Asks if user wants to continue. """
     global study_count
 
-    # 🔥 Ensure MessageBox appears on top
+    # Ensure MessageBox appears on top
     top = tk.Toplevel()
     top.attributes("-topmost", True)  # Always on top
     top.withdraw()  # Hide the window, only use it as a parent for MessageBox
