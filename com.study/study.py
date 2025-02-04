@@ -13,6 +13,10 @@ def beepsound_long():
     fr = 2000    # range : 37 ~ 32767
     du = 3000     # 1000 ms ==1second
     sd.Beep(fr, du) # winsound.Beep(frequency, duration)
+    
+def record_time():
+    """ Record the current time and return """
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 # Initialize Tkinter (hidden)
 root = tk.Tk()
@@ -22,22 +26,76 @@ root.withdraw()
 study_count = simpledialog.askinteger("공부 횟수 입력", "공부 횟수를 입력하세요:", minvalue=1, maxvalue=100)
 if study_count is None:
     exit()
+    
+def save_values():
+    global study_duration, break_duration
+    study_input = study_entry.get().strip()
+    break_input = break_entry.get().strip()
+    
+    study_duration = int(study_input) if study_input.isdigit() else 30
+    break_duration = int(break_input) if break_input.isdigit() else 15
+    
+    plan_window.destroy()
+    
+def use_default():
+    global study_duration, break_duration
+    study_duration, break_duration = 30, 15
+    plan_window.destroy()
+    
+
+# Ask about the study plan
+plan_window = tk.Toplevel()
+plan_window.title("공부계획 설정")
+plan_window.geometry("300x200")
+plan_window.attributes("-topmost", True)
+
+tk.Label(plan_window, text="직접 공부계획을 설정 하실 수 있습니다.\n(기본 공부시간 30분, 휴식시간 15분)").pack(pady=5)
+
+# Input Window
+tk.Label(plan_window, text="공부 시간 (분):").pack(pady=5)
+study_entry = tk.Entry(plan_window)
+study_entry.pack(pady=5)
+
+tk.Label(plan_window, text="휴식 시간 (분):").pack(pady=5)
+break_entry = tk.Entry(plan_window)
+break_entry.pack(pady=5)
+
+# Button
+button_frame = tk.Frame(plan_window)
+button_frame.pack(pady=10)
+
+tk.Button(button_frame, text="확인", command=save_values).pack(side=tk.LEFT, padx=5)
+tk.Button(button_frame, text="취소", command=use_default).pack(side=tk.RIGHT, padx=5)
+
+# If terminated, use default
+plan_window.protocol("WM_DELETE_WINDOW", use_default)
+
+# Wait for a call from user
+plan_window.wait_window()
+    
+    
 
 # Time Constants
 MIN = 60
 SECOND = 1  # Debugging Mode
 TIMER_SET = SECOND  # Change to `MIN` for real execution
-STUDYTIME = 30  # Minutes
-BREAKTIME = 15  # Minutes
 
 # Total Study Time Tracker
 spend_time = 0  
+start_time = record_time() # record time
 
 # Create Timer Window (Always on Top)
 timer_window = tk.Tk()
 timer_window.title("남은 시간")
 timer_window.geometry("300x70")
 timer_window.attributes("-topmost", True)  # Always keep window on top
+
+def on_close():
+    """ Terminate the program when user close the timer """
+    study_over()
+
+# If User terminates the timer window, terminate the application
+timer_window.protocol("WM_DELETE_WINDOW", on_close)
 
 time_label = tk.Label(timer_window, text="", font=("Arial", 16))
 time_label.pack(pady=20)
@@ -56,6 +114,7 @@ def timer(type, remaining_time, callback):
     else:
         callback()  # Call next function when time is up
 
+
 def study_session():
     """ Starts a study session, then asks user if they want to continue. """
     global study_count
@@ -63,12 +122,13 @@ def study_session():
         return  # Stop if no more sessions left
 
     beepsound()
-    messagebox.showinfo("공부 시작", f"남은 공부 시간: {STUDYTIME} 분")
+    messagebox.showinfo("공부 시작", f"남은 공부 시간: {study_duration} 분")
 
     # Start study timer
-    timer("STUDY", STUDYTIME, study_done)
+    timer("STUDY", study_duration, study_session_complete)
 
-def study_done():
+
+def study_session_complete():
     beepsound_long()
 
     """ Called when study session is over. Asks if user wants to continue. """
@@ -84,7 +144,7 @@ def study_done():
     top.destroy()  # Clean up the top-level window
 
     if end_study or study_count <= 1:  # Last session or user chooses to stop
-        show_total_time()
+        study_over()
     else:
         break_time()
 
@@ -92,10 +152,11 @@ def study_done():
 def break_time():
     """ Starts a break session and then calls study_session() again """
     global study_count
-    messagebox.showinfo("휴식 시간", f"남은 휴식 시간: {BREAKTIME} 분")
+    messagebox.showinfo("휴식 시간", f"남은 휴식 시간: {break_duration} 분")
 
     # Start break timer
-    timer("BREAK", BREAKTIME, break_done)
+    timer("BREAK", break_duration, break_done)
+
 
 def break_done():
     """ Called when break is over. Starts the next study session or ends. """
@@ -104,18 +165,19 @@ def break_done():
     if study_count > 0:
         study_session()
     else:
-        show_total_time()
+        study_over()
 
-def show_total_time():
-    """ Show total study time at the end """
+
+def study_over():
+    """ When the study is completely finish """
+    global end_time
+    end_time = record_time() # record time
+    record_study(start_time, end_time)
     messagebox.showinfo("총 공부 시간", f"총 공부한 시간: {spend_time // 60} 시간 {spend_time % 60} 분")
     timer_window.destroy()
+    exit()
     
-def record_time():
-    """ Record the current time and return """
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-
 def record_study(start_time, end_time):
     """ Record the total study time and date in txt file """
     log_file = "log.txt"
@@ -126,14 +188,8 @@ def record_study(start_time, end_time):
     
     
 # PROGRAM BEGINS
-start_time = record_time() # record time
 
 # Start study session
 study_session()
-end_time = record_time() # record time
-
-record_study(start_time, end_time)
-exit()
-
 
 timer_window.mainloop()  # Keep UI running
